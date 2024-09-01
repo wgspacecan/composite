@@ -7,6 +7,12 @@ clock = pygame.time.Clock()
 running = True
 dt = 0
 
+allowRelease = False
+allowOverwrite = False
+
+# set the pygame window name
+pygame.display.set_caption('Tic Tac Toe')
+
 font = pygame.font.SysFont('Arial', 40)
 
 objects = []
@@ -17,62 +23,9 @@ for i in range(9):
 
 print(states)
 
-usercolor1 = '#333333'
-usercolor2 = '#ff6347'
-
 current_user = 1
 
 class Button():
-    def __init__(self, x, y, width, height, buttonName='', onClick=None, user=1):
-        self.x = x
-        self.y = y
-        self.width = width
-        self.height = height
-        self.buttonName = buttonName
-        self.onclickFunction = onClick
-        self.alreadyPressed = False
-
-        if user == 1:
-            self.usercolor = usercolor1
-        elif user == 2:
-            self.usercolor = usercolor2
-
-        self.fillColors = {
-            'normal': '#ffffff',
-            'hover': '#666666',
-            'pressed': self.usercolor,
-        }
-
-        self.buttonSurface = pygame.Surface((self.width, self.height))
-        self.buttonRect = pygame.Rect(self.x, self.y, self.width, self.height)
-
-        self.buttonSurf = font.render('', True, (20, 20, 20))
-
-        objects.append(self)
-    
-    def process(self):
-        mousePos = pygame.mouse.get_pos()
-        self.buttonSurface.fill(self.fillColors['normal'])
-        if self.buttonRect.collidepoint(mousePos):
-            self.buttonSurface.fill(self.fillColors['hover'])
-            if pygame.mouse.get_pressed(num_buttons=3)[0]:
-                self.buttonSurface.fill(self.fillColors['pressed'])
-                if not self.alreadyPressed:
-                    self.onclickFunction(self.buttonName)
-                    self.alreadyPressed = True
-                    states[self.buttonName-1] = 1
-            else:
-                self.alreadyPressed = False
-                states[self.buttonName-1] = 0
-            
-
-        self.buttonSurface.blit(self.buttonSurf, [
-            self.buttonRect.width/2 - self.buttonSurf.get_rect().width/2,
-            self.buttonRect.height/2 - self.buttonSurf.get_rect().height/2
-        ])
-        screen.blit(self.buttonSurface, self.buttonRect)
-
-class ButtonMenu():
     def __init__(self, x, y, width, height, buttonName='', onClick=None, buttonText=''):
         self.x = x
         self.y = y
@@ -82,12 +35,22 @@ class ButtonMenu():
         self.buttonText = buttonText
         self.onclickFunction = onClick
         self.alreadyPressed = False
+        self.toggledUser = 0
+        self.usercolor1 = '#15dbed'
+        self.usercolor2 = '#ff6347'
 
-        self.fillColors = {
-            'normal': '#ffffff',
-            'hover': '#666666',
-            'pressed': '#333333',
-        }
+        if self.buttonText == '':
+            self.fillColors = {
+                'normal': '#ffffff',
+                'hover': '#666666',
+                'pressed': '#333333',
+            }
+        else:
+            self.fillColors = {
+                'pressed': '#ffffff',
+                'normal': '#666666',
+                'hover': '#333333',
+            }
 
         self.buttonSurface = pygame.Surface((self.width, self.height))
         self.buttonRect = pygame.Rect(self.x, self.y, self.width, self.height)
@@ -97,19 +60,42 @@ class ButtonMenu():
         objects.append(self)
     
     def process(self):
+        # update game button color
+        if self.buttonText == '':
+            if self.toggledUser == 1:
+                self.fillColors['pressed'] = self.usercolor1
+            elif self.toggledUser == 2:
+                self.fillColors['pressed'] = self.usercolor2
+    
         mousePos = pygame.mouse.get_pos()
-        self.buttonSurface.fill(self.fillColors['normal'])
+        if states[self.buttonName-1] == 0 or self.buttonText != '': self.buttonSurface.fill(self.fillColors['normal'])
+        else: self.buttonSurface.fill(self.fillColors['pressed'])
+
+        if self.buttonText != '' and current_user == self.buttonName: self.buttonSurface.fill(self.fillColors['pressed'])
+        # hover
         if self.buttonRect.collidepoint(mousePos):
-            self.buttonSurface.fill(self.fillColors['hover'])
+            if self.toggledUser != current_user and states[self.buttonName-1] == 0: self.buttonSurface.fill(self.fillColors['hover'])
+            # pressed
             if pygame.mouse.get_pressed(num_buttons=3)[0]:
-                self.buttonSurface.fill(self.fillColors['pressed'])
+                # first press
                 if not self.alreadyPressed:
-                    self.onclickFunction(self.buttonName)
-                    self.alreadyPressed = True
-                    states[self.buttonName-1] = 1
+                    if self.buttonText != '': self.onclickFunction(self.buttonName)
+                    if self.buttonText == '':
+                        self.alreadyPressed = True
+                        # manage state
+                        if states[self.buttonName-1] == 1 and allowRelease:
+                            states[self.buttonName-1] = 0
+                        elif states[self.buttonName-1] == 0 or allowOverwrite:
+                            states[self.buttonName-1] = 1
+                            self.toggledUser = current_user
+                            self.onclickFunction(self.buttonName)
+                # update press color
+                self.buttonSurface.fill(self.fillColors['pressed'])
+
+            # release
             else:
                 self.alreadyPressed = False
-                states[self.buttonName-1] = 0
+                if states[self.buttonName-1] == 0: self.toggledUser = 0
             
 
         self.buttonSurface.blit(self.buttonSurf, [
@@ -118,28 +104,54 @@ class ButtonMenu():
         ])
         screen.blit(self.buttonSurface, self.buttonRect)
 
+def resetBoard(user):
+    for i in range(9):
+        states[i] = 0
+    print('reset board')
+
+def changeUser(user):
+    global current_user
+    current_user = user
+    print('changed current user: ' + str(user))
+
 def buttonPressed(name):
+    if current_user == 1: changeUser(2)
+    elif current_user == 2: changeUser(1)
     print('Button Pressed: ' + str(name))
 
 # first row
-Button(30, 30, 100, 100, 1, buttonPressed, 1)
-Button(140, 30, 100, 100, 2, buttonPressed, 2)
-Button(250, 30, 100, 100, 3, buttonPressed)
+Button(80, 120, 100, 100, 1, buttonPressed)
+Button(190, 120, 100, 100, 2, buttonPressed)
+Button(300, 120, 100, 100, 3, buttonPressed)
 
 # second row
-Button(30, 140, 100, 100, 4, buttonPressed)
-Button(140, 140, 100, 100, 5, buttonPressed)
-Button(250, 140, 100, 100, 6, buttonPressed)
+Button(80, 230, 100, 100, 4, buttonPressed)
+Button(190, 230, 100, 100, 5, buttonPressed)
+Button(300, 230, 100, 100, 6, buttonPressed)
 
 # third row
-Button(30, 250, 100, 100, 7, buttonPressed)
-Button(140, 250, 100, 100, 8, buttonPressed)
-Button(250, 250, 100, 100, 9, buttonPressed)
+Button(80, 340, 100, 100, 7, buttonPressed)
+Button(190, 340, 100, 100, 8, buttonPressed)
+Button(300, 340, 100, 100, 9, buttonPressed)
 
 # menu
-ButtonMenu(30, 400, 300, 100, 0, buttonPressed, 'reset')
-ButtonMenu(30, 510, 300, 100, 0, buttonPressed, 'user1')
-ButtonMenu(30, 620, 300, 100, 0, buttonPressed, 'user2')
+Button(30, 490, 400, 50, 1, changeUser, 'User 1')
+Button(30, 560, 400, 50, 2, changeUser, 'User 2')
+Button(30, 650, 400, 50, 0, resetBoard, 'Reset')
+
+# text
+white = (255, 255, 255)
+green = (0, 255, 0)
+blue = (0, 0, 128)
+userTextX = 150
+userTextY = 750
+
+titleTextX = 150
+titleTextY = 70
+
+text = font.render('TicTacToe!!', True, green, blue)
+textRect = text.get_rect()
+textRect.center = (titleTextX, titleTextY)
 
 while running:
     # poll for events
@@ -151,6 +163,16 @@ while running:
     # fill the screen with a color to wipe away anything from last frame
     screen.fill("black")
 
+    # title text
+    screen.blit(text, textRect)
+
+    # user text
+    usertext = font.render('User: ' + str(current_user), True, green, blue)
+    usertextRect = text.get_rect()
+    usertextRect.center = (userTextX, userTextY)
+    screen.blit(usertext, usertextRect)
+
+    # button objects
     for object in objects:
         object.process()
 
